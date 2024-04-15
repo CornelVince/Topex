@@ -1,0 +1,122 @@
+#1. CREATE THE FULL NAME of THE 1st FILE
+#1.1. String for the path
+
+inputpath<-"C:/Users/DELL/Documents/MER/Semester 2/Satellite oceanography and meteology/Topex/TOPEX (2)/"
+
+#1.2. Concatenate PATH+NAME OF THE FILE
+#command: "paste"
+
+inputfile<-paste(inputpath,
+"tx_19930101_19930201_calib_1yr_gridded.ascii",
+sep="")
+
+#2. READ THE FILE
+
+sat1<-read.table(inputfile,header=F,
+na.strings="-999.000")
+
+#Give names to the columns
+names(sat1)[1]<-"lon"
+names(sat1)[2]<-"lat"
+names(sat1)[3]<-"hsw"
+names(sat1)[4]<-"tz"
+
+#Create an object with lon-lat-hsw
+#col#1,#2,#3
+hws_sat<-sat1[,c(1,2,3)]
+
+#Create an object with lon-lat-tz
+#col#1,#2,#
+tz_sat<-sat1[,c(1,2,4)]
+
+hws_sat[300:322,]
+tz_sat[300:322,]
+
+#To retrieve the names of the files
+#command: "list.files"
+
+files<-list.files(path=inputpath)
+
+#We need to read files[2].....files[154]
+#Loop from 2 to 154 *****
+for( knt in seq(2,154,1)){
+	#Create the full name of the file to open
+	inputfile_satx<-paste(inputpath,files[knt],sep="")
+	#Read the file
+	satx<-read.table(inputfile_satx,header=F,
+	na.strings="-999.000")
+	#From satx extract hws (col.#3) and add it to the
+	#hws_sat object:command 'cbind' bind columns
+	hws_sat<-cbind(hws_sat,satx[,3])
+	#From satx extract tz (col.#4) and add it to the
+	#tz_sat object
+	tz_sat<-cbind(tz_sat,satx[,4])
+}
+#Loop from 2 to 154 *****
+tz_sat[330:335,152:154]
+
+#We calculate monthly WEF=0.49*hws^2*tz
+
+pow_sat<-0.49*(hws_sat**2)*tz_sat
+
+pow_sat[,1:2]<-hws_sat[,1:2]
+
+#Calculate averages for the period
+#command 'rowMeans'
+pow_sat_aver<-rowMeans(pow_sat[,3:156],na.rm=T)
+
+#We need to put two first columns with lon-lat
+pow_sat_aver2<-cbind(pow_sat[,1:2],pow_sat_aver)
+names(pow_sat_aver2)[1]<-"lon"
+names(pow_sat_aver2)[2]<-"lat"
+names(pow_sat_aver2)[3]<-"wef"
+
+pow_sat_aver2[1:20,]
+
+######## MAP of WEF *******************
+#install.packages("maps")
+#install.packages("mapdata")
+#install.packages("shape")
+#install.packages("reshape2")
+
+library(sp)
+library(maps)
+library(mapdata)
+library(shape)
+library(reshape2)
+
+#Divide the plotting area into two:matrxi notation
+
+layout(matrix(1:2,ncol=2),width=c(1,4))
+
+#Create a color palette
+
+coll<-colorRampPalette(c("purple","blue","lightblue",
+"orange","yellow"))(100)
+
+#Minimun observed WEF value
+min(pow_sat_aver2[,3],na.rm=T)
+max(pow_sat_aver2[,3],na.rm=T)
+
+#Regression line COLOR#=F(WEF)
+rescalecolor<-1+((100/105)*pow_sat_aver2[,3])
+#Colorscale goes to the left part
+colorlegend(zlim=c(0,105),
+zval=seq(0,105,10),
+col=coll[1:100],main="WEF \n kw/m\n\n",
+main.cex=0.8,
+posx=c(0.2,0.35),posy=c(0.05,0.9))
+
+#RIGHT PART
+map("worldHires",col="grey",fill=T)
+#pow_sat_aver2[,1]=lon
+#pow_sat_aver2[,2]=lat
+
+points(pow_sat_aver2[,1],pow_sat_aver2[,2],
+col=coll[rescalecolor])
+map("worldHires",col="grey",
+fill=T,add=T)
+axis(1);axis(2)
+title(main="TOPEX WEF kW/m:JAN93-OCT05",
+xlab="ºE")
+
